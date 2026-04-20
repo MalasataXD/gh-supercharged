@@ -10,28 +10,6 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: cli/gh-extension-precompile@v2
         with:
           go-version: "1.26"
-      - name: Build binaries
-        run: |
-          TARGETS=(
-            "linux/amd64"
-            "linux/arm64"
-            "darwin/amd64"
-            "darwin/arm64"
-            "windows/amd64"
-          )
-          mkdir dist
-          for TARGET in "${TARGETS[@]}"; do
-            OS="${TARGET%%/*}"
-            ARCH="${TARGET##*/}"
-            EXT=""
-            [ "$OS" = "windows" ] && EXT=".exe"
-            GOOS=$OS GOARCH=$ARCH go build \
-              -o "dist/gh-supercharged_${OS}_${ARCH}${EXT}" .
-          done
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*
