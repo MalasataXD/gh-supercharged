@@ -11,26 +11,22 @@ description: >
 
 # gh — GitHub CLI Skill
 
-Orchestrate GitHub issue and project workflows through `gh` CLI. Every workflow
-reads config and cache, then executes the appropriate `gh` commands and formats
-output as clean Markdown.
+Orchestrate GitHub issue and project workflows through the `gh supercharged`
+extension. Every workflow is a single command invocation with pre-formatted
+Markdown output (or `--json` for structured data in interactive steps).
 
 ## 1. Bootstrap
 
-### Load config
+Verify the extension is installed:
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/gh/config.json`.
+```bash
+gh extension list | grep supercharged
+```
 
-If the file does not exist:
-1. Copy `${CLAUDE_PLUGIN_ROOT}/skills/gh/config.example.json` to `config.json`.
-2. Tell the user: "First time setup — I created `config.json` inside the `gh` skill. Please set `github_handle` to your GitHub username, then re-run."
-3. Stop.
+If missing, tell the user:
+> "Run `gh extension install MalasataXD/gh-supercharged` to install the extension, then re-run."
 
-### Load cache
-
-Read `${CLAUDE_PLUGIN_ROOT}/skills/gh/cache.json`.
-
-If the file does not exist, treat the cache as `{"projects": {}}`.
+Stop.
 
 ---
 
@@ -46,227 +42,87 @@ Map the user's request to exactly one workflow:
 | "move #<n> to <status>", "set status to", "mark as done/in progress" | **Move** |
 | "new issue", "draft issue", "create issue", "open an issue", "write issue" | **New Issue** |
 
-If the intent is ambiguous, state your interpretation and proceed. Do not ask for confirmation unless there is a genuine fork (e.g., the user mentions both "digest" and "move" — ask which one to do first).
+If the intent is ambiguous, state your interpretation and proceed.
 
 ---
 
 ## 3. Workflows
 
-### Plate — open work assigned to me
+All workflows are executed by `gh supercharged`. Output is pre-formatted Markdown
+unless `--json` is passed for interactive steps.
 
-Show open issues assigned to the current user, sorted by last update.
+### Plate
 
 ```bash
-gh search issues \
-  --assignee @me \
-  --state open \
-  --sort updated \
-  --order desc \
-  --limit 50 \
-  --json number,title,repository,labels,milestone,updatedAt,url
+gh supercharged plate [--repo <owner/repo>] [--owner <org>]
 ```
 
-Group results by `repository.nameWithOwner`. For each repo, list issues with
-their labels and milestone (if set). Summarize total count at the top.
-
-If the user specifies a repo (`--repo owner/name`) or an owner, add `--repo`
-or `--owner` flags accordingly.
+Output is Markdown — show verbatim.
 
 ---
 
-### Digest — period summary
+### Digest
 
-Defaults to `config.digest_window_days` days if no date is given. Accept
-relative input like `7d`, `2w`, `last monday`, or ISO dates like `2026-04-10`.
-
-Convert to an ISO date for the `--closed` / `--merged` filters.
-
-**Closed issues involving me:**
 ```bash
-gh search issues \
-  --involves <config.github_handle> \
-  --state closed \
-  --closed ">=<since-date>" \
-  --sort updated \
-  --limit 100 \
-  --json number,title,repository,labels,closedAt,url
+gh supercharged digest [<since>] [--owner <org>]
 ```
 
-**Merged PRs authored by me:**
-```bash
-gh search prs \
-  --author <config.github_handle> \
-  --state merged \
-  --merged ">=<since-date>" \
-  --sort updated \
-  --limit 100 \
-  --json number,title,repository,labels,closedAt,url
-```
+`<since>` accepts `7d`, `2w`, `last monday`, or `YYYY-MM-DD`. Defaults to
+`digest_window_days` from config when omitted.
 
-Format as Markdown:
-
-```
-## Digest: <since-date> → today
-
-### <owner/repo>
-- Closed issues: #<n> <title> · <labels>
-- Merged PRs: #<n> <title>
-
-### <owner/repo>
-...
-
-**Total:** <X> issues closed · <Y> PRs merged
-```
-
-If results are zero, say so and suggest widening the window.
+Output is Markdown — show verbatim. If results are zero, suggest widening the window.
 
 ---
 
-### Standup — yesterday / today / blockers
+### Standup
 
-Closed issues and PRs since yesterday (1-day digest), plus today's open plate.
+```bash
+gh supercharged standup
+```
 
-**Yesterday's closes:** run Digest with `--closed ">=<yesterday-ISO>"`.
-
-**Today's open plate:** run Plate limited to 20 items.
-
-Format using `config.standup_format`. Replace tokens:
-- `{closed}` — bulleted list of closed items (title + repo)
-- `{open}` — bulleted list of top open items (title + repo)
-- `{blockers}` — leave blank; prompt the user to fill it in
+Output is Markdown — show verbatim. Prompt the user to fill in the blockers section.
 
 ---
 
-### Move — change a project status field
+### Move
 
-See `${CLAUDE_PLUGIN_ROOT}/skills/gh/references/project-ids.md` for the full
-ID resolution walkthrough. Summary:
-
-**Step 1 — resolve the issue and its project membership:**
 ```bash
-gh issue view <number> -R <owner/repo> \
-  --json number,title,projectItems,url
-```
-`projectItems` contains `id` (the item node ID) and nested project info.
-If the issue is in multiple projects, ask the user which one.
-
-**Step 2 — resolve field and option IDs (use cache when available):**
-
-Cache key: `<owner>/<project-number>` (e.g. `"MalasataXD/3"`).
-
-If key is in cache: read `project_id`, `fields.Status.id`, and
-`fields.Status.options.<status-name>` directly.
-
-If key is missing or stale: run the discovery chain in `references/project-ids.md`,
-then write the result to cache before proceeding.
-
-**Step 3 — update the field:**
-```bash
-gh project item-edit \
-  --id <item-node-id> \
-  --project-id <project-node-id> \
-  --field-id <status-field-id> \
-  --single-select-option-id <option-id>
+gh supercharged move <issue> "<status>" --repo <owner/repo>
 ```
 
-On success: confirm with "Moved #<n> `<title>` → **<status>**."
+`<issue>` accepts `#42` or `42`. `<status>` is case-insensitive and matched
+against the project's Status field options.
 
-On error containing "not found" or "does not exist": invalidate the cache
-entry, re-run Step 2, and retry once. If it fails again, report the raw error.
+Output: `Moved #N \`title\` → **status**`
 
-**Date, iteration, text, and number fields** are supported too — use
-`--date`, `--iteration-id`, `--text`, `--number` respectively. Detect the
-field type from cache or `field-list` output before choosing the flag.
+If the issue is in multiple projects, add `--project <number>` to disambiguate.
 
 ---
 
-### New Issue — draft and create a well-formed issue
+### New Issue
 
-**Step 1 — establish target repo:**
-- If the user is inside a git repo with a GitHub remote, run `gh repo view --json nameWithOwner` to get it.
-- Otherwise ask: "Which repo? (owner/repo format)"
+**Step 1 — get draft (structured output for review):**
 
-**Step 2 — read repo label taxonomy:**
 ```bash
-gh label list -R <owner/repo> \
-  --json name,description,color \
-  --limit 100
+gh supercharged new-issue "<description>" --repo <owner/repo> --json
 ```
 
-**Step 3 — read available issue templates:**
-```bash
-gh api repos/<owner>/<repo>/contents/.github/ISSUE_TEMPLATE \
-  --jq '.[].name' 2>/dev/null || echo "(no templates)"
-```
-
-**Step 4 — draft the issue:**
-Based on the user's description, the label list, and available templates:
-1. Pick the best matching template (if any).
-2. Pick labels that fit the type and scope (bug, feature, enhancement, etc.).
-3. Draft a title (imperative, ≤ 72 chars).
-4. Draft a body following the template structure, or a sensible default:
-   - **Problem / Goal** — what is broken or what needs to exist
-   - **Expected behaviour** — what should happen
-   - **Context** — screenshots, logs, links (prompt user if needed)
-   - **Acceptance criteria** — bulleted, testable
-
-**Step 5 — show draft and get approval:**
-Present the title, labels, and body to the user. Say:
+Show the returned `title`, `labels`, `template`, and `body` to the user. Say:
 "Here's the draft — reply `ok` to create it, or tell me what to change."
 
-**Step 6 — create:**
+**Step 2 — create (after user approval):**
+
 ```bash
-gh issue create \
-  -R <owner/repo> \
-  -t "<title>" \
-  -l "<label1>" -l "<label2>" \
-  -F -   <<< "<body>"
+gh supercharged new-issue "<description>" --repo <owner/repo> --confirm
 ```
 
-Or, if a template was selected and it matches a `--template` name exactly,
-use `-T <template-name>` instead of `-F`.
-
-Confirm with the created issue URL.
+Confirm with the returned issue URL.
 
 ---
 
-## 4. Cache Format
+## 4. Reference Files
 
-The cache file lives at `${CLAUDE_PLUGIN_ROOT}/skills/gh/cache.json` (gitignored).
-Schema:
+Load these on demand — do not preload:
 
-```json
-{
-  "projects": {
-    "<owner>/<project-number>": {
-      "project_id": "PVT_...",
-      "fields": {
-        "Status": {
-          "id": "PVTSSF_...",
-          "options": {
-            "Todo": "option-node-id",
-            "In Progress": "option-node-id",
-            "Done": "option-node-id"
-          }
-        }
-      },
-      "cached_at": "2026-04-17T12:00:00Z"
-    }
-  }
-}
-```
-
-Write the full cache file back whenever an entry is added or invalidated.
-
----
-
-## 5. Reference Files
-
-Load these on demand — do not preload both:
-
-- `references/gh-cheatsheet.md` — full flag reference for each workflow command
-- `references/project-ids.md` — step-by-step ID discovery chain for Projects v2
-
-Load `project-ids.md` when executing a Move and the cache is cold.
-Load `gh-cheatsheet.md` when the user asks about flags or when a command errors
-unexpectedly.
+- `references/gh-cheatsheet.md` — full `gh` flag reference (consult when a command errors unexpectedly)
+- `references/project-ids.md` — Projects v2 ID discovery chain (background context; the extension handles this automatically)
