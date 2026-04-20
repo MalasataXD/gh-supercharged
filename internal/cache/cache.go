@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/MalasataXD/gh-supercharged/internal/config"
@@ -29,7 +30,7 @@ type Entry struct {
 }
 
 type Cache struct {
-	Projects map[string]Entry `json:"projects"` // key: "owner/project-number"
+	Projects map[string]Entry `json:"projects"` // key: project node ID (e.g. "PVT_...")
 	path     string
 }
 
@@ -54,6 +55,12 @@ func Load() (*Cache, error) {
 		return nil, fmt.Errorf("parse cache: %w", err)
 	}
 	c.path = path
+	// Purge legacy "owner/number" keys written before projects were looked up by node ID.
+	for k := range c.Projects {
+		if strings.Contains(k, "/") {
+			delete(c.Projects, k)
+		}
+	}
 	return &c, nil
 }
 

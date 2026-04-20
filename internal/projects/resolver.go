@@ -18,29 +18,27 @@ func NewResolver(c *ghclient.Client, ca *cache.Cache) *Resolver {
 }
 
 // Resolve returns the node IDs needed to call UpdateProjectField.
-// owner/projectNumber identify the project; fieldName is e.g. "Status";
+// projectNodeID is the project's global node ID; fieldName is e.g. "Status";
 // optionName is the desired value (case-insensitive). For non-single-select
 // fields pass optionName="".
-func (r *Resolver) Resolve(owner string, projectNumber int, fieldName, optionName string) (*IDs, error) {
-	ids, err := r.resolve(owner, projectNumber, fieldName, optionName)
+func (r *Resolver) Resolve(projectNodeID, fieldName, optionName string) (*IDs, error) {
+	ids, err := r.resolve(projectNodeID, fieldName, optionName)
 	if err != nil && isStaleError(err) {
-		key := fmt.Sprintf("%s/%d", owner, projectNumber)
-		r.cache.Invalidate(key)
+		r.cache.Invalidate(projectNodeID)
 		_ = r.cache.Save()
-		ids, err = r.resolve(owner, projectNumber, fieldName, optionName)
+		ids, err = r.resolve(projectNodeID, fieldName, optionName)
 	}
 	return ids, err
 }
 
-func (r *Resolver) resolve(owner string, projectNumber int, fieldName, optionName string) (*IDs, error) {
-	key := fmt.Sprintf("%s/%d", owner, projectNumber)
-	entry, hit := r.cache.Get(key)
+func (r *Resolver) resolve(projectNodeID, fieldName, optionName string) (*IDs, error) {
+	entry, hit := r.cache.Get(projectNodeID)
 
 	if !hit {
-		if err := r.populate(owner, projectNumber, key); err != nil {
+		if err := r.populate(projectNodeID); err != nil {
 			return nil, err
 		}
-		entry, _ = r.cache.Get(key)
+		entry, _ = r.cache.Get(projectNodeID)
 	}
 
 	ids := &IDs{ProjectNodeID: entry.ProjectID}
@@ -69,8 +67,8 @@ func (r *Resolver) resolve(owner string, projectNumber int, fieldName, optionNam
 	return ids, nil
 }
 
-func (r *Resolver) populate(owner string, projectNumber int, key string) error {
-	fields, err := r.client.ProjectFields(owner, projectNumber)
+func (r *Resolver) populate(projectNodeID string) error {
+	fields, err := r.client.ProjectFields(projectNodeID)
 	if err != nil {
 		return fmt.Errorf("discover project fields: %w", err)
 	}
@@ -86,7 +84,7 @@ func (r *Resolver) populate(owner string, projectNumber int, key string) error {
 		}
 	}
 
-	r.cache.Set(key, entry)
+	r.cache.Set(projectNodeID, entry)
 	return r.cache.Save()
 }
 

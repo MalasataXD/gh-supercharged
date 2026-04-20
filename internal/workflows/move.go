@@ -26,11 +26,10 @@ func Move(c *ghclient.Client, resolver *projects.Resolver, req MoveReq) (*MoveRe
 	}
 
 	item := detail.ProjectItems[0]
-	projectNumber := item.Project.Number
 	projectNodeID := item.Project.ID
 	itemNodeID := item.ID
 
-	ids, err := resolver.Resolve(req.Owner, projectNumber, "Status", req.Status)
+	ids, err := resolver.Resolve(projectNodeID, "Status", req.Status)
 	if err != nil {
 		return nil, err
 	}

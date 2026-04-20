@@ -82,11 +82,12 @@ type ProjectField struct {
 	}
 }
 
-// ProjectFields returns all fields for a project via GraphQL.
-func (c *Client) ProjectFields(owner string, projectNumber int) (*FieldListResponse, error) {
-	query := `query($owner:String!,$number:Int!) {
-		user(login:$owner) {
-			projectV2(number:$number) {
+// ProjectFields returns all fields for a project via GraphQL, resolved by node ID.
+// Accepts both user- and org-owned projects.
+func (c *Client) ProjectFields(projectNodeID string) (*FieldListResponse, error) {
+	query := `query($id:ID!) {
+		node(id:$id) {
+			... on ProjectV2 {
 				fields(first:50) {
 					nodes {
 						... on ProjectV2SingleSelectField { id name options { id name } }
@@ -97,23 +98,21 @@ func (c *Client) ProjectFields(owner string, projectNumber int) (*FieldListRespo
 			}
 		}
 	}`
-	vars := map[string]interface{}{"owner": owner, "number": projectNumber}
+	vars := map[string]interface{}{"id": projectNodeID}
 
 	var data struct {
-		User struct {
-			ProjectV2 struct {
-				Fields struct {
-					Nodes []struct {
-						ID      string `json:"id"`
-						Name    string `json:"name"`
-						Options []struct {
-							ID   string `json:"id"`
-							Name string `json:"name"`
-						} `json:"options"`
-					} `json:"nodes"`
-				} `json:"fields"`
-			} `json:"projectV2"`
-		} `json:"user"`
+		Node struct {
+			Fields struct {
+				Nodes []struct {
+					ID      string `json:"id"`
+					Name    string `json:"name"`
+					Options []struct {
+						ID   string `json:"id"`
+						Name string `json:"name"`
+					} `json:"options"`
+				} `json:"nodes"`
+			} `json:"fields"`
+		} `json:"node"`
 	}
 
 	if err := c.GQL.Do(query, vars, &data); err != nil {
@@ -121,7 +120,7 @@ func (c *Client) ProjectFields(owner string, projectNumber int) (*FieldListRespo
 	}
 
 	resp := &FieldListResponse{}
-	for _, n := range data.User.ProjectV2.Fields.Nodes {
+	for _, n := range data.Node.Fields.Nodes {
 		f := ProjectField{ID: n.ID, Name: n.Name}
 		for _, opt := range n.Options {
 			f.Options = append(f.Options, struct {
