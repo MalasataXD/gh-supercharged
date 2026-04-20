@@ -1,5 +1,0 @@
-{
-  "github_handle": "your-github-username",
-  "digest_window_days": 7,
-  "standup_format": "## Yesterday\n{closed}\n\n## Today\n{open}\n\n## Blockers\n{blockers}"
-}
