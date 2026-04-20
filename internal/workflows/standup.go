@@ -6,10 +6,15 @@ import (
 	"github.com/MalasataXD/gh-supercharged/internal/ghclient"
 )
 
-func Standup(c *ghclient.Client, handle string, format string) (*StandupResult, error) {
+type StandupOpts struct {
+	Repo  string
+	Owner string
+}
+
+func Standup(c *ghclient.Client, handle string, format string, opts StandupOpts) (*StandupResult, error) {
 	yesterday := time.Now().UTC().Truncate(24 * time.Hour).AddDate(0, 0, -1)
 
-	digest, err := Digest(c, handle, yesterday, DigestOpts{})
+	digest, err := Digest(c, handle, yesterday, DigestOpts{Repo: opts.Repo, Owner: opts.Owner})
 	if err != nil {
 		return nil, err
 	}
@@ -19,7 +24,7 @@ func Standup(c *ghclient.Client, handle string, format string) (*StandupResult, 
 		closed = append(closed, g.Issues...)
 	}
 
-	plate, err := Plate(c, handle, PlateOpts{})
+	plate, err := Plate(c, handle, PlateOpts{Repo: opts.Repo, Owner: opts.Owner})
 	if err != nil {
 		return nil, err
 	}

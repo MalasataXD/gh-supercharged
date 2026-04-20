@@ -8,6 +8,7 @@ import (
 	"github.com/MalasataXD/gh-supercharged/internal/config"
 	"github.com/MalasataXD/gh-supercharged/internal/ghclient"
 	"github.com/MalasataXD/gh-supercharged/internal/render"
+	"github.com/MalasataXD/gh-supercharged/internal/repoctx"
 	"github.com/MalasataXD/gh-supercharged/internal/workflows"
 	"github.com/spf13/cobra"
 )
@@ -18,8 +19,11 @@ var plateCmd = &cobra.Command{
 	RunE:  runPlate,
 }
 
+var plateFull bool
+
 func init() {
 	rootCmd.AddCommand(plateCmd)
+	plateCmd.Flags().BoolVar(&plateFull, "full", false, "Search across all repos instead of the current one")
 }
 
 func runPlate(_ *cobra.Command, _ []string) error {
@@ -37,9 +41,18 @@ func runPlate(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("gh client: %w", err)
 	}
 
+	repo := flagRepo
+	owner := flagOwner
+	if !plateFull && repo == "" && owner == "" {
+		repo = repoctx.CurrentRepo()
+		if repo != "" && flagVerbose {
+			fmt.Fprintf(os.Stderr, "scope: %s (auto)\n", repo)
+		}
+	}
+
 	result, err := workflows.Plate(client, cfg.GithubHandle, workflows.PlateOpts{
-		Repo:  flagRepo,
-		Owner: flagOwner,
+		Repo:  repo,
+		Owner: owner,
 	})
 	if err != nil {
 		return err

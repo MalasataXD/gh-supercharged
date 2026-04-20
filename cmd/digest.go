@@ -10,6 +10,7 @@ import (
 	"github.com/MalasataXD/gh-supercharged/internal/dates"
 	"github.com/MalasataXD/gh-supercharged/internal/ghclient"
 	"github.com/MalasataXD/gh-supercharged/internal/render"
+	"github.com/MalasataXD/gh-supercharged/internal/repoctx"
 	"github.com/MalasataXD/gh-supercharged/internal/workflows"
 	"github.com/spf13/cobra"
 )
@@ -21,7 +22,12 @@ var digestCmd = &cobra.Command{
 	RunE:  runDigest,
 }
 
-func init() { rootCmd.AddCommand(digestCmd) }
+var digestFull bool
+
+func init() {
+	rootCmd.AddCommand(digestCmd)
+	digestCmd.Flags().BoolVar(&digestFull, "full", false, "Search across all repos instead of the current one")
+}
 
 func runDigest(_ *cobra.Command, args []string) error {
 	cfg, cfgPath, err := config.Load()
@@ -46,7 +52,19 @@ func runDigest(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	result, err := workflows.Digest(client, cfg.GithubHandle, since, workflows.DigestOpts{Owner: flagOwner})
+	repo := flagRepo
+	owner := flagOwner
+	if !digestFull && repo == "" && owner == "" {
+		repo = repoctx.CurrentRepo()
+		if repo != "" && flagVerbose {
+			fmt.Fprintf(os.Stderr, "scope: %s (auto)\n", repo)
+		}
+	}
+
+	result, err := workflows.Digest(client, cfg.GithubHandle, since, workflows.DigestOpts{
+		Repo:  repo,
+		Owner: owner,
+	})
 	if err != nil {
 		return err
 	}

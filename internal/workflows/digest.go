@@ -9,6 +9,7 @@ import (
 )
 
 type DigestOpts struct {
+	Repo  string
 	Owner string
 }
 
@@ -16,7 +17,9 @@ func Digest(c *ghclient.Client, handle string, since time.Time, opts DigestOpts)
 	sinceStr := since.Format("2006-01-02")
 
 	issueQ := fmt.Sprintf("involves:%s state:closed closed:>=%s sort:updated", handle, sinceStr)
-	if opts.Owner != "" {
+	if opts.Repo != "" {
+		issueQ += " repo:" + opts.Repo
+	} else if opts.Owner != "" {
 		issueQ += " org:" + opts.Owner
 	}
 	issues, err := c.SearchIssues(issueQ)
@@ -25,7 +28,9 @@ func Digest(c *ghclient.Client, handle string, since time.Time, opts DigestOpts)
 	}
 
 	prQ := fmt.Sprintf("author:%s state:merged merged:>=%s sort:updated", handle, sinceStr)
-	if opts.Owner != "" {
+	if opts.Repo != "" {
+		prQ += " repo:" + opts.Repo
+	} else if opts.Owner != "" {
 		prQ += " org:" + opts.Owner
 	}
 	prs, err := c.SearchPRs(prQ)

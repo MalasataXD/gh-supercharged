@@ -8,6 +8,7 @@ import (
 	"github.com/MalasataXD/gh-supercharged/internal/config"
 	"github.com/MalasataXD/gh-supercharged/internal/ghclient"
 	"github.com/MalasataXD/gh-supercharged/internal/render"
+	"github.com/MalasataXD/gh-supercharged/internal/repoctx"
 	"github.com/MalasataXD/gh-supercharged/internal/workflows"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +19,12 @@ var standupCmd = &cobra.Command{
 	RunE:  runStandup,
 }
 
-func init() { rootCmd.AddCommand(standupCmd) }
+var standupFull bool
+
+func init() {
+	rootCmd.AddCommand(standupCmd)
+	standupCmd.Flags().BoolVar(&standupFull, "full", false, "Search across all repos instead of the current one")
+}
 
 func runStandup(_ *cobra.Command, _ []string) error {
 	cfg, cfgPath, err := config.Load()
@@ -35,7 +41,19 @@ func runStandup(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	result, err := workflows.Standup(client, cfg.GithubHandle, cfg.StandupFormat)
+	repo := flagRepo
+	owner := flagOwner
+	if !standupFull && repo == "" && owner == "" {
+		repo = repoctx.CurrentRepo()
+		if repo != "" && flagVerbose {
+			fmt.Fprintf(os.Stderr, "scope: %s (auto)\n", repo)
+		}
+	}
+
+	result, err := workflows.Standup(client, cfg.GithubHandle, cfg.StandupFormat, workflows.StandupOpts{
+		Repo:  repo,
+		Owner: owner,
+	})
 	if err != nil {
 		return err
 	}
