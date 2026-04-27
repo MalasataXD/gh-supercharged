@@ -123,32 +123,6 @@ gh supercharged move 42 "In Progress" --repo owner/repo --json
 - Status matching is case-insensitive.
 - Project field metadata is cached locally; run `gh supercharged cache clear` if statuses seem stale.
 
----
-
-### `new-issue` — Draft and create a GitHub issue
-
-Drafts a well-formed issue with auto-detected labels and template, then optionally submits it.
-
-**Step 1 — preview the draft:**
-
-```bash
-gh supercharged new-issue "fix login redirect loop" --repo owner/repo
-gh supercharged new-issue "fix login redirect loop" --repo owner/repo --json
-```
-
-**Step 2 — create it:**
-
-```bash
-gh supercharged new-issue "fix login redirect loop" --repo owner/repo --confirm
-```
-
-The command auto-fills:
-- Title (first 72 characters of the description)
-- Relevant labels (keyword + description matching)
-- Issue template (matched from repo templates)
-- Structured body with **Problem/Goal**, **Expected Behavior**, **Context**, and **Acceptance Criteria** sections
-
----
 
 ## Cache management
 

@@ -22,8 +22,6 @@ gh supercharged plate                                          # open issues ass
 gh supercharged digest 7d                                      # last 7 days of closes + merged PRs
 gh supercharged standup                                        # yesterday/today/blockers
 gh supercharged move 42 "In Progress" --repo owner/repo       # move issue to status
-gh supercharged new-issue "fix login" --repo owner/repo --json    # draft issue
-gh supercharged new-issue "fix login" --repo owner/repo --confirm # create issue
 ```
 
 Add `--json` to any command for structured output. Add `--verbose` for raw errors.

@@ -1,8 +1,6 @@
 package ghclient
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -55,36 +53,4 @@ func (c *Client) SearchIssues(qualifiers string) ([]Issue, error) {
 		return nil, err
 	}
 	return resp.Items, nil
-}
-
-type CreateIssueRequest struct {
-	Owner  string
-	Repo   string
-	Title  string
-	Body   string
-	Labels []string
-}
-
-type CreatedIssue struct {
-	Number int    `json:"number"`
-	URL    string `json:"html_url"`
-	Title  string `json:"title"`
-}
-
-func (c *Client) CreateIssue(req CreateIssueRequest) (*CreatedIssue, error) {
-	body := map[string]interface{}{
-		"title":  req.Title,
-		"body":   req.Body,
-		"labels": req.Labels,
-	}
-	data, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	var created CreatedIssue
-	path := fmt.Sprintf("repos/%s/%s/issues", req.Owner, req.Repo)
-	if err := c.REST.Post(path, bytes.NewReader(data), &created); err != nil {
-		return nil, err
-	}
-	return &created, nil
 }

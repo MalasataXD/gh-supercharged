@@ -67,22 +67,6 @@ type MoveResult struct {
 	Status string
 }
 
-// --- New Issue ---
-
-type IssueDraft struct {
-	Repo     string
-	Title    string
-	Labels   []string
-	Template string
-	Body     string
-}
-
-type NewIssueResult struct {
-	URL    string
-	Number int
-	Title  string
-}
-
 // helpers
 
 func labelsFrom(ls []ghclient.Label) []string {
